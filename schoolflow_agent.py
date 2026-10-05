@@ -1,7 +1,6 @@
 from strands import Agent, tool
 from strands.models import BedrockModel
 
-
 teachers = [
     {
         "name": "Nora",
