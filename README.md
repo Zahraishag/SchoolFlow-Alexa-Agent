@@ -23,3 +23,10 @@ After Huda is approved, the schedule is updated and the notification step is com
 **Alexa → AWS Lambda → SchoolFlow Agent → Candidate Validation → Human Approval → Schedule Update → Notification**
 
 **AI recommends → Human approves → System executes safely.**
+## Development Friction Log
+
+We documented the main implementation challenges, fixes, and improvement suggestions encountered while building SchoolFlow.
+
+Read the full log here:
+
+[SchoolFlow Friction Log](friction_log.md)
