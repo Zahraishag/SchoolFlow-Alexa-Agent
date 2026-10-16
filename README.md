@@ -41,3 +41,9 @@ Only after approval does SchoolFlow update the prototype schedule state and prep
 We documented the main implementation challenges, fixes, and improvement suggestions encountered while building SchoolFlow.
 
 [Read the SchoolFlow Friction Log](friction_log.md)
+
+## Reliability Testing
+
+SchoolFlow includes a focused agent reliability evaluation.
+
+[View Agent Reliability Tests](agent_reliability_tests.md)
