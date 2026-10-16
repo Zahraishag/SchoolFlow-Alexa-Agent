@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SchoolFlow – Simulated Alexa+ Experience</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top right, #253b80 0, transparent 35%),
+        linear-gradient(135deg, #08111f, #101d35 60%, #16264b);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 950px;
+      background: rgba(8, 17, 31, 0.88);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+    }
+
+    header {
+      padding: 28px 34px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .brand p {
+      margin: 8px 0 0;
+      color: #aebbd2;
+    }
+
+    .badge {
+      background: rgba(65, 209, 255, 0.12);
+      color: #7ee7ff;
+      border: 1px solid rgba(126, 231, 255, 0.35);
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 290px;
+      min-height: 560px;
+    }
+
+    .chat {
+      padding: 30px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .messages {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 380px;
+    }
+
+    .message {
+      max-width: 82%;
+      padding: 15px 18px;
+      border-radius: 18px;
+      line-height: 1.5;
+      animation: fadeIn 0.35s ease;
+    }
+
+    .admin {
+      align-self: flex-end;
+      background: #2b4fc7;
+      border-bottom-right-radius: 5px;
+    }
+
+    .schoolflow {
+      align-self: flex-start;
+      background: rgba(255,255,255,0.09);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-bottom-left-radius: 5px;
+    }
+
+    .label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 7px;
+      opacity: 0.65;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 25px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      background: #47d7ff;
+      color: #07111f;
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .danger {
+      background: #f05d6f;
+      color: white;
+    }
+
+    .success {
+      background: #4bd48a;
+      color: #062416;
+    }
+
+    .side {
+      padding: 28px 22px;
+      background: rgba(255,255,255,0.025);
+    }
+
+    .side h3 {
+      margin-top: 0;
+      font-size: 16px;
+    }
+
+    .flow-item {
+      margin-bottom: 18px;
+    }
+
+    .flow-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .flow-item span {
+      color: #9cabc4;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .status {
+      margin-top: 28px;
+      padding: 15px;
+      background: rgba(75, 212, 138, 0.08);
+      border: 1px solid rgba(75, 212, 138, 0.22);
+      border-radius: 14px;
+      font-size: 13px;
+      color: #a7efc8;
+    }
+
+    footer {
+      padding: 18px 30px;
+      color: #8290aa;
+      font-size: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 750px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .chat {
+        border-right: none;
+      }
+
+      .side {
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .message {
+        max-width: 94%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <h1>SchoolFlow Agent</h1>
+      <p>Voice-first teacher absence management with human approval.</p>
+    </div>
+
+    <div class="badge">
+      Simulated Alexa+ Experience
+    </div>
+  </header>
+
+  <div class="main">
+
+    <section class="chat">
+
+      <div class="messages" id="messages">
+
+        <div class="message schoolflow">
+          <span class="label">SchoolFlow</span>
+          Welcome to SchoolFlow. Report a teacher absence to begin.
+        </div>
+
+      </div>
+
+      <div class="controls" id="controls">
+        <button class="primary" onclick="reportAbsence()">
+          Report Nora Absent
+        </button>
+      </div>
+
+    </section>
+
+    <aside class="side">
+
+      <h3>Agent Workflow</h3>
+
+      <div class="flow-item">
+        <strong>1. Voice Request</strong>
+        <span>Administrator reports an absence through Alexa.</span>
+      </div>
+
+      <div class="flow-item">
+        <strong>2. Candidate Validation</strong>
+        <span>Conflict, subject, stage, and workload rules are checked.</span>
+      </div>
+
+      <div class="flow-item">
+        <strong>3. AI Recommendation</strong>
+        <span>The safest eligible candidate is presented.</span>
+      </div>
+
+      <div class="flow-item">
+        <strong>4. Human Decision</strong>
+        <span>The administrator must explicitly approve or reject.</span>
+      </div>
+
+      <div class="flow-item">
+        <strong>5. Safe Execution</strong>
+        <span>Prototype schedule state is updated only after approval.</span>
+      </div>
+
+      <div class="status">
+        AI recommends → deterministic rules validate → human approves → system executes safely.
+      </div>
+
+    </aside>
+
+  </div>
+
+  <footer>
+    SchoolFlow prototype • Alexa Skills Kit • AWS Lambda • Amazon Bedrock • Strands Agents SDK
+  </footer>
+
+</div>
+
+<script>
+
+  const messages = document.getElementById("messages");
+  const controls = document.getElementById("controls");
+
+  function addMessage(type, label, text) {
+    const div = document.createElement("div");
+
+    div.className = "message " + type;
+
+    div.innerHTML =
+      '<span class="label">' + label + '</span>' +
+      text;
+
+    messages.appendChild(div);
+
+    div.scrollIntoView({
+      behavior: "smooth",
+      block: "end"
+    });
+  }
+
+  function reportAbsence() {
+
+    addMessage(
+      "admin",
+      "Administrator",
+      "Nora is absent on Sunday during period 2."
+    );
+
+    setTimeout(() => {
+
+      addMessage(
+        "schoolflow",
+        "SchoolFlow",
+        "<strong>Sara</strong> is the recommended substitute.<br>" +
+        "Score: <strong>7</strong><br>" +
+        "Reason: same subject, same stage, acceptable workload.<br><br>" +
+        "Would you like to approve or reject Sara?"
+      );
+
+      controls.innerHTML =
+        '<button class="success" onclick="approveSara()">Approve Sara</button>' +
+        '<button class="danger" onclick="rejectSara()">Reject Sara</button>';
+
+    }, 500);
+  }
+
+  function rejectSara() {
+
+    addMessage(
+      "admin",
+      "Administrator",
+      "Reject Sara."
+    );
+
+    setTimeout(() => {
+
+      addMessage(
+        "schoolflow",
+        "SchoolFlow",
+        "Sara has been excluded from this workflow.<br><br>" +
+        "The next recommended substitute is <strong>Huda</strong>.<br>" +
+        "Score: <strong>5</strong><br>" +
+        "Reason: same subject and acceptable workload.<br><br>" +
+        "Would you like to approve or reject Huda?"
+      );
+
+      controls.innerHTML =
+        '<button class="success" onclick="approveHuda()">Approve Huda</button>' +
+        '<button class="danger" onclick="rejectHuda()">Reject Huda</button>';
+
+    }, 500);
+  }
+
+  function approveSara() {
+
+    addMessage(
+      "admin",
+      "Administrator",
+      "Approve Sara."
+    );
+
+    completeWorkflow("Sara");
+  }
+
+  function approveHuda() {
+
+    addMessage(
+      "admin",
+      "Administrator",
+      "Approve Huda."
+    );
+
+    completeWorkflow("Huda");
+  }
+
+  function rejectHuda() {
+
+    addMessage(
+      "admin",
+      "Administrator",
+      "Reject Huda."
+    );
+
+    setTimeout(() => {
+
+      addMessage(
+        "schoolflow",
+        "SchoolFlow",
+        "No additional eligible candidates are available. " +
+        "The case has been escalated for manual review."
+      );
+
+      controls.innerHTML =
+        '<button class="secondary" onclick="resetDemo()">Restart Demo</button>';
+
+    }, 500);
+  }
+
+  function completeWorkflow(candidate) {
+
+    setTimeout(() => {
+
+      addMessage(
+        "schoolflow",
+        "SchoolFlow",
+        "<strong>" + candidate + " is approved.</strong><br><br>" +
+        "The prototype schedule state has been updated for " +
+        "Grade 5 Math on Sunday, period 2.<br>" +
+        "A substitute notification has been prepared."
+      );
+
+      controls.innerHTML =
+        '<button class="secondary" onclick="resetDemo()">Restart Demo</button>';
+
+    }, 500);
+  }
+
+  function resetDemo() {
+
+    messages.innerHTML =
+      '<div class="message schoolflow">' +
+      '<span class="label">SchoolFlow</span>' +
+      'Welcome to SchoolFlow. Report a teacher absence to begin.' +
+      '</div>';
+
+    controls.innerHTML =
+      '<button class="primary" onclick="reportAbsence()">Report Nora Absent</button>';
+  }
+
+</script>
+
+</body>
+</html>
