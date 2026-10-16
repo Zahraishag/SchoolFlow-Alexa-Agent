@@ -14,7 +14,7 @@ Initial agent runs failed with AWS credential and model-access errors, including
 Configured the AWS account correctly, enabled the required Bedrock model access, and later moved execution into AWS Lambda using the Lambda execution role instead of storing API keys in source code.
 
 **Suggested improvement:**  
-Provide a clearer end-to-end onboarding checklist for Bedrock access, model permissions, IAM roles, and first successful invocation.
+Provide a clearer end-to-end onboarding checklist for Bedrock access, model permissions, IAM roles, and first successful invocation
 
 ---
 
