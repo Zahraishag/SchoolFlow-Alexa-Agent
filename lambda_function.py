@@ -1,5 +1,20 @@
-def alexa_response(text, session_attributes=None, end_session=False):
-    return {
+from schoolflow_agent import run_schoolflow
+
+
+# =========================================================
+# ALEXA RESPONSE
+# =========================================================
+
+def alexa_response(
+    text,
+    session_attributes=None,
+    end_session=False
+):
+    """
+    Build a valid Alexa response.
+    """
+
+    response = {
         "version": "1.0",
         "sessionAttributes": session_attributes or {},
         "response": {
@@ -7,261 +22,525 @@ def alexa_response(text, session_attributes=None, end_session=False):
                 "type": "PlainText",
                 "text": text
             },
-            "reprompt": {
-                "outputSpeech": {
-                    "type": "PlainText",
-                    "text": "Please say approve or reject."
-                }
-            },
             "shouldEndSession": end_session
         }
     }
 
+    # Keep Alexa listening when the workflow
+    # still requires human approval.
+    if not end_session:
+        response["response"]["reprompt"] = {
+            "outputSpeech": {
+                "type": "PlainText",
+                "text": (
+                    "Please say approve or reject."
+                )
+            }
+        }
 
-teachers = [
-    {
-        "name": "Sara",
-        "subject": "Math",
-        "stage": "Intermediate",
-        "workload": 4
-    },
-    {
-        "name": "Reem",
-        "subject": "Math",
-        "stage": "Intermediate",
-        "workload": 6
-    },
-    {
-        "name": "Amal",
-        "subject": "Science",
-        "stage": "Intermediate",
-        "workload": 3
-    },
-    {
-        "name": "Huda",
-        "subject": "Math",
-        "stage": "Primary",
-        "workload": 4
-    }
-]
+    return response
 
+
+# =========================================================
+# SLOT HELPERS
+# =========================================================
 
 def get_slot(intent, slot_name):
+    """
+    Safely read a slot value from an Alexa intent.
+    """
+
     slots = intent.get("slots", {})
     slot = slots.get(slot_name, {})
+
     return slot.get("value")
 
 
-def choose_substitute(rejected=None):
-    rejected = rejected or []
+def normalize_period(period):
+    """
+    Convert Alexa period value to an integer
+    when possible.
+    """
 
-    candidates = []
+    if period is None:
+        return 2
 
-    for teacher in teachers:
-        if teacher["name"] in rejected:
-            continue
+    try:
+        return int(period)
 
-        if teacher["workload"] >= 6:
-            continue
+    except (TypeError, ValueError):
+        period_words = {
+            "one": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+            "six": 6,
+            "seven": 7,
+            "eight": 8
+        }
 
-        score = 0
-        reasons = []
+        return period_words.get(
+            str(period).lower(),
+            2
+        )
 
-        if teacher["subject"] == "Math":
-            score += 3
-            reasons.append("same subject")
 
-        if teacher["stage"] == "Intermediate":
-            score += 2
-            reasons.append("same stage")
-
-        if teacher["workload"] < 6:
-            score += 2
-            reasons.append("lower workload")
-
-        candidates.append({
-            "name": teacher["name"],
-            "score": score,
-            "reason": ", ".join(reasons)
-        })
-
-    if not candidates:
-        return None
-
-    candidates.sort(
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-    return candidates[0]
-
+# =========================================================
+# MAIN LAMBDA HANDLER
+# =========================================================
 
 def lambda_handler(event, context):
 
-    request = event.get("request", {})
-    request_type = request.get("type")
-
-    session_attributes = (
-        event.get("session", {})
-        .get("attributes", {})
+    request = event.get(
+        "request",
+        {}
     )
 
-    # 1. Open SchoolFlow
+    request_type = request.get(
+        "type"
+    )
+
+    session_attributes = (
+        event
+        .get("session", {})
+        .get("attributes", {})
+        or {}
+    )
+
+    # =====================================================
+    # 1. LAUNCH SCHOOLFLOW
+    # =====================================================
+
     if request_type == "LaunchRequest":
+
         return alexa_response(
-            "Welcome to SchoolFlow. "
-            "Tell me which teacher is absent.",
+            (
+                "Welcome to SchoolFlow. "
+                "Tell me which teacher is absent."
+            ),
             session_attributes
         )
 
-    # 2. Intent handling
+    # =====================================================
+    # 2. INTENT REQUEST
+    # =====================================================
+
     if request_type == "IntentRequest":
 
-        intent = request.get("intent", {})
-        intent_name = intent.get("name")
+        intent = request.get(
+            "intent",
+            {}
+        )
 
-        # ---------------------------------
-        # Teacher absence
-        # ---------------------------------
+        intent_name = intent.get(
+            "name"
+        )
+
+        # -------------------------------------------------
+        # TEACHER ABSENCE
+        # -------------------------------------------------
+
         if intent_name == "TeacherAbsenceIntent":
 
             teacher_name = (
-                get_slot(intent, "teacherName")
+                get_slot(
+                    intent,
+                    "teacherName"
+                )
                 or "Nora"
             )
 
             day = (
-                get_slot(intent, "day")
+                get_slot(
+                    intent,
+                    "day"
+                )
                 or "Sunday"
             )
 
-            period = (
-                get_slot(intent, "period")
-                or "2"
+            period = normalize_period(
+                get_slot(
+                    intent,
+                    "period"
+                )
             )
 
-            # Start a fresh recommendation chain
-            session_attributes["rejectedCandidates"] = []
+            # Start a new absence workflow.
+            rejected_candidates = []
 
-            candidate = choose_substitute([])
+            try:
 
-            if candidate is None:
+                result = run_schoolflow(
+                    action="recommend",
+                    absent_teacher=teacher_name,
+                    day=day,
+                    period=period,
+                    rejected_candidates=(
+                        rejected_candidates
+                    )
+                )
+
+            except Exception as error:
+
+                print(
+                    "SchoolFlow recommendation error:",
+                    str(error)
+                )
+
                 return alexa_response(
-                    "No safe substitute is available. "
-                    "The case should be escalated to the administrator.",
+                    (
+                        "SchoolFlow could not complete "
+                        "the recommendation. "
+                        "Please try again."
+                    ),
                     session_attributes,
                     True
                 )
 
+            # No safe candidate found.
+            if result.get("status") == "escalate":
+
+                return alexa_response(
+                    result.get(
+                        "message",
+                        (
+                            "No safe substitute is "
+                            "available. The case has "
+                            "been escalated to the "
+                            "administrator."
+                        )
+                    ),
+                    session_attributes,
+                    True
+                )
+
+            candidate = result.get(
+                "candidate"
+            )
+
+            score = result.get(
+                "score"
+            )
+
+            reason = result.get(
+                "reason",
+                "validated by SchoolFlow"
+            )
+
+            # Save workflow state in Alexa session.
             session_attributes.update({
                 "absentTeacher": teacher_name,
                 "day": day,
                 "period": period,
-                "pendingCandidate": candidate["name"]
+                "pendingCandidate": candidate,
+                "rejectedCandidates": (
+                    rejected_candidates
+                )
             })
 
             return alexa_response(
-                f"{candidate['name']} is the recommended substitute "
-                f"for {teacher_name} on {day}, period {period}. "
-                f"Reason: {candidate['reason']}. "
-                f"Would you like to approve or reject {candidate['name']}?",
+                (
+                    f"{candidate} is the recommended "
+                    f"substitute for {teacher_name} "
+                    f"on {day}, period {period}. "
+                    f"SchoolFlow score is {score}. "
+                    f"Reason: {reason}. "
+                    f"Would you like to approve "
+                    f"or reject {candidate}?"
+                ),
                 session_attributes
             )
 
-        # ---------------------------------
-        # Approve substitute
-        # ---------------------------------
+        # -------------------------------------------------
+        # APPROVE SUBSTITUTE
+        # -------------------------------------------------
+
         if intent_name == "SubstituteDecisionIntent":
 
-            candidate = session_attributes.get(
-                "pendingCandidate"
+            candidate = (
+                get_slot(
+                    intent,
+                    "teacherName"
+                )
+                or session_attributes.get(
+                    "pendingCandidate"
+                )
             )
 
             if not candidate:
+
                 return alexa_response(
-                    "There is no pending substitute recommendation.",
+                    (
+                        "There is no pending substitute "
+                        "recommendation."
+                    ),
                     session_attributes
                 )
 
-            absent_teacher = session_attributes.get(
-                "absentTeacher",
-                "Nora"
+            absent_teacher = (
+                session_attributes.get(
+                    "absentTeacher",
+                    "Nora"
+                )
             )
 
-            day = session_attributes.get(
-                "day",
-                "Sunday"
+            day = (
+                session_attributes.get(
+                    "day",
+                    "Sunday"
+                )
             )
 
-            period = session_attributes.get(
-                "period",
-                "2"
+            period = normalize_period(
+                session_attributes.get(
+                    "period",
+                    2
+                )
             )
 
-            return alexa_response(
-                f"{candidate} is approved. "
-                f"The schedule has been updated for Grade 5 Math "
-                f"on {day}, period {period}. "
-                f"{candidate} has been notified.",
-                session_attributes,
-                True
-            )
+            try:
 
-        # ---------------------------------
-        # Reject substitute
-        # ---------------------------------
-        if intent_name == "RejectSubstituteIntent":
-
-            candidate = session_attributes.get(
-                "pendingCandidate"
-            )
-
-            if not candidate:
-                return alexa_response(
-                    "There is no pending substitute recommendation.",
-                    session_attributes
+                result = run_schoolflow(
+                    action="approve",
+                    absent_teacher=absent_teacher,
+                    day=day,
+                    period=period,
+                    candidate=candidate,
+                    rejected_candidates=(
+                        session_attributes.get(
+                            "rejectedCandidates",
+                            []
+                        )
+                    )
                 )
 
-            rejected = session_attributes.get(
-                "rejectedCandidates",
-                []
-            )
+            except Exception as error:
 
-            if candidate not in rejected:
-                rejected.append(candidate)
+                print(
+                    "SchoolFlow approval error:",
+                    str(error)
+                )
 
-            session_attributes[
-                "rejectedCandidates"
-            ] = rejected
-
-            new_candidate = choose_substitute(
-                rejected
-            )
-
-            if new_candidate is None:
                 return alexa_response(
-                    "No safe substitute remains. "
-                    "The case has been escalated to the administrator.",
+                    (
+                        "SchoolFlow could not complete "
+                        "the approval workflow. "
+                        "Please try again."
+                    ),
                     session_attributes,
                     True
                 )
 
-            session_attributes[
-                "pendingCandidate"
-            ] = new_candidate["name"]
+            if result.get("status") != "completed":
+
+                return alexa_response(
+                    result.get(
+                        "message",
+                        (
+                            "The schedule could not "
+                            "be updated."
+                        )
+                    ),
+                    session_attributes,
+                    True
+                )
 
             return alexa_response(
-                f"{candidate} was rejected. "
-                f"The next recommended substitute is "
-                f"{new_candidate['name']}. "
-                f"Reason: {new_candidate['reason']}. "
-                f"Would you like to approve or reject "
-                f"{new_candidate['name']}?",
+                result.get(
+                    "message",
+                    (
+                        f"{candidate} has been approved."
+                    )
+                ),
+                session_attributes,
+                True
+            )
+
+        # -------------------------------------------------
+        # REJECT SUBSTITUTE
+        # -------------------------------------------------
+
+        if intent_name == "RejectSubstituteIntent":
+
+            candidate = (
+                get_slot(
+                    intent,
+                    "teacherName"
+                )
+                or session_attributes.get(
+                    "pendingCandidate"
+                )
+            )
+
+            if not candidate:
+
+                return alexa_response(
+                    (
+                        "There is no pending substitute "
+                        "recommendation."
+                    ),
+                    session_attributes
+                )
+
+            absent_teacher = (
+                session_attributes.get(
+                    "absentTeacher",
+                    "Nora"
+                )
+            )
+
+            day = (
+                session_attributes.get(
+                    "day",
+                    "Sunday"
+                )
+            )
+
+            period = normalize_period(
+                session_attributes.get(
+                    "period",
+                    2
+                )
+            )
+
+            rejected_candidates = (
+                session_attributes.get(
+                    "rejectedCandidates",
+                    []
+                )
+            )
+
+            try:
+
+                result = run_schoolflow(
+                    action="reject",
+                    absent_teacher=absent_teacher,
+                    day=day,
+                    period=period,
+                    candidate=candidate,
+                    rejected_candidates=(
+                        rejected_candidates
+                    )
+                )
+
+            except Exception as error:
+
+                print(
+                    "SchoolFlow rejection error:",
+                    str(error)
+                )
+
+                return alexa_response(
+                    (
+                        "SchoolFlow could not "
+                        "re-evaluate the candidates. "
+                        "Please try again."
+                    ),
+                    session_attributes,
+                    True
+                )
+
+            # No candidate remains.
+            if result.get("status") == "escalate":
+
+                session_attributes[
+                    "rejectedCandidates"
+                ] = result.get(
+                    "rejected_candidates",
+                    rejected_candidates
+                )
+
+                return alexa_response(
+                    result.get(
+                        "message",
+                        (
+                            "No safe substitute remains. "
+                            "The case has been escalated "
+                            "to the administrator."
+                        )
+                    ),
+                    session_attributes,
+                    True
+                )
+
+            next_candidate = result.get(
+                "next_candidate"
+            )
+
+            score = result.get(
+                "score"
+            )
+
+            reason = result.get(
+                "reason",
+                "validated by SchoolFlow"
+            )
+
+            session_attributes[
+                "rejectedCandidates"
+            ] = result.get(
+                "rejected_candidates",
+                rejected_candidates
+            )
+
+            session_attributes[
+                "pendingCandidate"
+            ] = next_candidate
+
+            return alexa_response(
+                (
+                    f"{candidate} was rejected. "
+                    f"The next recommended substitute "
+                    f"is {next_candidate}. "
+                    f"SchoolFlow score is {score}. "
+                    f"Reason: {reason}. "
+                    f"Would you like to approve "
+                    f"or reject {next_candidate}?"
+                ),
                 session_attributes
             )
 
-    # 3. Fallback
+        # -------------------------------------------------
+        # AMAZON HELP INTENT
+        # -------------------------------------------------
+
+        if intent_name == "AMAZON.HelpIntent":
+
+            return alexa_response(
+                (
+                    "You can tell me that a teacher "
+                    "is absent, for example, "
+                    "Nora is absent on Sunday "
+                    "during period two."
+                ),
+                session_attributes
+            )
+
+        # -------------------------------------------------
+        # AMAZON STOP / CANCEL
+        # -------------------------------------------------
+
+        if intent_name in [
+            "AMAZON.StopIntent",
+            "AMAZON.CancelIntent"
+        ]:
+
+            return alexa_response(
+                "Goodbye from SchoolFlow.",
+                session_attributes,
+                True
+            )
+
+    # =====================================================
+    # 3. FALLBACK
+    # =====================================================
+
     return alexa_response(
-        "Sorry, I did not understand that request.",
+        (
+            "Sorry, I did not understand that request. "
+            "Please report a teacher absence, "
+            "or say approve or reject."
+        ),
         session_attributes
     )
